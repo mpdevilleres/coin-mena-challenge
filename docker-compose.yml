@@ -1,0 +1,65 @@
+# This docker compose is meant for dev and demo proposes
+# services are directly accessible through their ports
+
+version: "3.7"
+
+x-backend: &backend
+  build: .
+  environment:
+    - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+    - DATABASE_URL=psql://postgres:postgres@db:5432/postgres
+    - CELERY_BROKER_URL=redis://redis:6379
+    - DEBUG=False
+
+services:
+  db:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  redis:
+    image: redis:latest
+    ports:
+    - "6379:6379"
+
+  celery-worker:
+    <<: *backend
+    depends_on:
+      - db
+      - redis
+    entrypoint: []
+    command: celery -A coin_mena_challenge.celery_app worker -l INFO
+
+  celery-beat:
+    <<: *backend
+    depends_on:
+      - db
+      - redis
+    entrypoint: []
+    command: celery -A coin_mena_challenge.celery_app beat -l INFO
+
+  api:
+    <<: *backend
+    depends_on:
+      - db
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`localhost`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+
+  traefik:
+    image: "traefik:v2.5"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
