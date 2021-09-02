@@ -7,6 +7,7 @@ x-backend: &backend
   build: .
   environment:
     - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+    - SECRET_KEY=${SECRET_KEY:-FillMePlease}
     - DATABASE_URL=psql://postgres:postgres@db:5432/postgres
     - CELERY_BROKER_URL=redis://redis:6379
     - DEBUG=False
